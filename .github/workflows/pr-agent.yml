@@ -20,7 +20,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          config.model: gpt-4o
+          OPENAI__API_BASE: https://dashscope.aliyuncs.com/compatible-mode/v1
+          config.model: openai/glm5.2
+          config.fallback_models: '["openai/glm5.1"]'
+          config.custom_model_max_tokens: "32000"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.auto_improve: "false"
