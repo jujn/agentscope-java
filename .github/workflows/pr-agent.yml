@@ -24,6 +24,22 @@ jobs:
           config.model: openai/glm-5.2
           config.fallback_models: '["openai/glm-5.1"]'
           config.custom_model_max_tokens: "32000"
+          pr_reviewer.extra_instructions: >-
+            Review this PR as a senior Java engineer.
+            Focus on event lifecycle, state transitions, compatibility, concurrency, and test coverage.
+            Identify concrete defects or risks introduced by this PR.
+            Prefer line-anchored findings with exact file and line.
+            If a finding has a straightforward fix, include existing_code and improved_code.
+            Do not report style-only issues.
+            Assess whether the current PR fully fixes the corresponding functionality,
+            without relying solely on the original issue or PR description.
+            Evaluate from a global perspective whether the fix is globally optimal
+            and whether anything is missing.
+          pr_reviewer.require_risk_assessment: "true"
+          pr_reviewer.require_failure_modes: "true"
+          pr_reviewer.require_priority_files: "true"
+          pr_code_suggestions.committable_code_suggestions: "true"
+          pr_reviewer.num_max_findings: "10"
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "false"
           github_action_config.auto_improve: "false"
