@@ -1,0 +1,101 @@
+name: Codex inline PR review
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: codex-review-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  codex-inline-review:
+    if: >-
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '@codex review')
+    runs-on: [self-hosted, codex]
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ github.event.issue.number }}/head
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: openai/codex-action@v1
+        id: codex
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          safety-strategy: read-only
+          output-file: codex-review.json
+          output-schema-file: codex-review.schema.json
+          prompt: |
+            Review PR #${{ github.event.issue.number }} in ${{ github.repository }}.
+
+            You are inside the repository checkout. Use:
+              git diff --unified=0 origin/main...HEAD
+
+            Requirements:
+            1. Determine whether the original issue or PR intent is real.
+            2. Judge whether this PR completely fixes it.
+            3. Review from a global architecture perspective.
+            4. Identify every medium-or-higher issue that should block merge.
+            5. For each finding, provide:
+               - exact file path
+               - exact changed line number
+               - side: RIGHT for new code, LEFT for deleted code
+               - severity: P0, P1, P2, or P3
+               - short title
+               - detailed body with trigger, impact, and fix
+
+            Only report issues on lines present in the PR diff.
+
+      - uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+
+            const raw = fs.readFileSync('codex-review.json', 'utf8');
+            const result = JSON.parse(raw);
+
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number,
+            });
+
+            const comments = (result.findings || [])
+              .filter(f => f.path && f.line > 0)
+              .map(f => ({
+                path: f.path,
+                line: f.line,
+                side: f.side || 'RIGHT',
+                subject_type: 'line',
+                body: `**${f.severity} ${f.title}**\n\n${f.body}`,
+              }));
+
+            if (comments.length === 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.issue.number,
+                body: result.summary || 'Codex found no inline findings.',
+              });
+              return;
+            }
+
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number,
+              commit_id: pr.data.head.sha,
+              event: 'COMMENT',
+              body: result.summary,
+              comments,
+            });
