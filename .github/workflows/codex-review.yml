@@ -30,7 +30,7 @@ jobs:
       - uses: openai/codex-action@v1
         id: codex
         with:
-          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          openai-api-key: ${{ secrets.OPENAI_KEY }}
           safety-strategy: read-only
           output-file: codex-review.json
           output-schema-file: codex-review.schema.json
@@ -95,7 +95,7 @@ jobs:
               repo: context.repo.repo,
               pull_number: context.payload.issue.number,
               commit_id: pr.data.head.sha,
-              event: 'COMMENT',
+              event: 'REQUEST_CHANGES',
               body: result.summary,
               comments,
             });
